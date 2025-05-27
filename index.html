@@ -63,12 +63,50 @@
       padding: 10px 20px;
       border-radius: 10px;
     }
+
+    #formNome {
+      margin-top: 50px;
+      background-color: rgba(0,0,0,0.5);
+      padding: 20px;
+      border-radius: 10px;
+      display: inline-block;
+    }
+
+    #nomeInput {
+      font-size: 18px;
+      padding: 8px;
+      border-radius: 5px;
+      border: none;
+      width: 250px;
+    }
+
+    #confirmarNomeBtn {
+      font-size: 18px;
+      padding: 9px 15px;
+      margin-left: 10px;
+      border-radius: 5px;
+      border: none;
+      cursor: pointer;
+      background-color: #ffffff;
+      color: #333;
+      transition: 0.3s;
+    }
+
+    #confirmarNomeBtn:hover {
+      background-color: #f0f0f0;
+    }
   </style>
 </head>
 <body>
 
-  <h2>Escolha um número de 1 a 26</h2>
-  <div class="grid" id="botoes"></div>
+  <h2>Digite seu nome completo para começar</h2>
+  <div id="formNome">
+    <input type="text" id="nomeInput" placeholder="Nome completo" />
+    <button id="confirmarNomeBtn">Confirmar Nome</button>
+  </div>
+
+  <h2 id="tituloBotoes" style="display:none;">Escolha um número de 1 a 26</h2>
+  <div class="grid" id="botoes" style="display:none;"></div>
 
   <div id="resultado"></div>
 
@@ -88,6 +126,10 @@
 
     const botoesContainer = document.getElementById("botoes");
     const resultado = document.getElementById("resultado");
+    const formNome = document.getElementById("formNome");
+    const nomeInput = document.getElementById("nomeInput");
+    const confirmarNomeBtn = document.getElementById("confirmarNomeBtn");
+    const tituloBotoes = document.getElementById("tituloBotoes");
 
     const presentes = [
       { texto: "Escorredor de Macarrão", imagem: "https://i.imgur.com/t1s7ZNM.png" },
@@ -115,48 +157,141 @@
       { texto: "Descanso de Panela", imagem: "https://i.imgur.com/2VlmhV3.png" },
       { texto: "Jogo Americano", imagem: "https://i.imgur.com/NHS85xd.png" },
       { texto: "Saca Rolha e Cortador para Bolo/Pizza", imagem: "https://i.imgur.com/51OKC7Q.jpeg" },
-      { texto: "Fruteira", imagem: "https://i.imgur.com/ZlwGcdD.jpeg" },
+      { texto: "Fruteira", imagem: "https://i.imgur.com/ZlwGcdD.jpeg" }
     ];
 
-    function criarBotoes(ocupados) {
+    let nomeUsuario = "";
+    let currentUserUID = "";
+    let ocupadosGlobais = {};
+    let userEscolheu = false;  // para controlar se usuário já escolheu
+
+    confirmarNomeBtn.addEventListener("click", confirmarNome);
+
+    // Cria botão desabilitado se já escolhido ou bloqueia todos se usuário já escolheu
+    function criarBotoes(ocupados, bloquearTodos) {
       botoesContainer.innerHTML = "";
       for (let i = 1; i <= 26; i++) {
         const btn = document.createElement("button");
         btn.textContent = i;
-        if (ocupados[i]) {
+
+        if (bloquearTodos) {
+          // Se usuário já escolheu, todos os botões ficam desabilitados
           btn.disabled = true;
+          if (ocupados[i]) btn.style.backgroundColor = "#ccc"; // mostra os ocupados cinza
+        } else {
+          // Se número já foi escolhido, desabilita só esse botão
+          if (ocupados[i]) btn.disabled = true;
         }
+
         btn.onclick = () => escolherPresente(i);
         botoesContainer.appendChild(btn);
       }
     }
 
-    function escolherPresente(numero) {
-      db.ref("escolhas/" + numero).once("value", (snapshot) => {
-        if (snapshot.exists()) {
-          alert("Esse número já foi escolhido!");
-        } else {
-          const presente = presentes[numero - 1];
-          db.ref("escolhas/" + numero).set(presente);
-          mostrarPresente(presente);
-          criarBotoes({ ...ocupadosGlobais, [numero]: true });
-        }
-      });
-    }
-
-    function mostrarPresente(presente) {
+    function mostrarPresente(presente, nome = "") {
       resultado.innerHTML = `
-        <h3>Você ficou com o presente:</h3>
+        <h3>${nome ? nome + ", você " : ""}ficou com o presente:</h3>
         <p>${presente.texto}</p>
         ${presente.imagem ? `<img src="${presente.imagem}" alt="Presente">` : ""}
       `;
     }
 
-    let ocupadosGlobais = {};
+    function confirmarNome() {
+      const nome = nomeInput.value.trim();
+      if (nome === "") {
+        alert("Por favor, digite seu nome.");
+        return;
+      }
 
+      // Checar se já escolheu nesse navegador
+      if (localStorage.getItem("presenteEscolhido")) {
+        const dado = JSON.parse(localStorage.getItem("presenteEscolhido"));
+        nomeUsuario = dado.nome;
+        currentUserUID = dado.uid;
+        userEscolheu = true;
+        formNome.style.display = "none";
+        tituloBotoes.style.display = "block";
+        botoesContainer.style.display = "grid";
+        criarBotoes(ocupadosGlobais, true);
+        mostrarPresente(dado.presente, nomeUsuario);
+        return;
+      }
+
+      nomeUsuario = nome;
+      currentUserUID = btoa(nome.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f\s]/g, ""));
+
+      // Verificar no Firebase se o nome já escolheu
+      db.ref("usuarios/" + currentUserUID).once("value", (snapshot) => {
+        if (snapshot.exists()) {
+          const dados = snapshot.val();
+          localStorage.setItem("presenteEscolhido", JSON.stringify({
+            nome: nomeUsuario,
+            uid: currentUserUID,
+            presente: dados.presente
+          }));
+          alert("Esse nome já foi usado. Voltando para o presente escolhido.");
+          userEscolheu = true;
+          formNome.style.display = "none";
+          tituloBotoes.style.display = "block";
+          botoesContainer.style.display = "grid";
+          criarBotoes(ocupadosGlobais, true);
+          mostrarPresente(dados.presente, nomeUsuario);
+        } else {
+          formNome.style.display = "none";
+          tituloBotoes.style.display = "block";
+          botoesContainer.style.display = "grid";
+          userEscolheu = false;
+          criarBotoes(ocupadosGlobais, false);
+        }
+      });
+    }
+
+    function escolherPresente(numero) {
+      if (userEscolheu) {
+        alert("Você já escolheu um presente!");
+        return;
+      }
+
+      db.ref("escolhas/" + numero).once("value", (snapshot) => {
+        if (snapshot.exists()) {
+          alert("Esse número já foi escolhido!");
+        } else {
+          const presente = presentes[numero - 1];
+          // Salvar escolha no Firebase: marca número e usuário
+          db.ref("escolhas/" + numero).set({
+            texto: presente.texto,
+            imagem: presente.imagem,
+            escolhidoPor: currentUserUID,
+            nomeUsuario: nomeUsuario
+          });
+          // Salvar nome do usuário e presente escolhido
+          db.ref("usuarios/" + currentUserUID).set({
+            nome: nomeUsuario,
+            presente: presente,
+            numero: numero
+          });
+          localStorage.setItem("presenteEscolhido", JSON.stringify({
+            nome: nomeUsuario,
+            uid: currentUserUID,
+            presente: presente
+          }));
+          userEscolheu = true;
+          mostrarPresente(presente, nomeUsuario);
+          criarBotoes(ocupadosGlobais, true);
+        }
+      });
+    }
+
+    // Atualiza os botões ao vivo com dados do Firebase
     db.ref("escolhas").on("value", (snapshot) => {
       ocupadosGlobais = snapshot.val() || {};
-      criarBotoes(ocupadosGlobais);
+      // Se usuário já escolheu, bloqueia tudo; senão só bloqueia os escolhidos
+      criarBotoes(ocupadosGlobais, userEscolheu);
+    });
+
+    // Se quiser, pode permitir Enter para confirmar nome
+    nomeInput.addEventListener("keyup", (e) => {
+      if (e.key === "Enter") confirmarNome();
     });
   </script>
 
