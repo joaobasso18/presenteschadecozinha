@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <title>Escolha seu Presente</title>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+  <style>
+    body {
+      font-family: sans-serif;
+      text-align: center;
+      margin: 0;
+      padding: 0;
+      background-image: url('https://i.imgur.com/XIO2mb5.png');
+      background-size: cover;
+      background-position: center;
+      background-repeat: no-repeat;
+      min-height: 100vh;
+      color: white;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
+      gap: 10px;
+      max-width: 600px;
+      margin: auto;
+      margin-top: 30px;
+      background-color: rgba(0, 0, 0, 0.5);
+      padding: 20px;
+      border-radius: 10px;
+    }
+
+    button {
+      padding: 20px;
+      font-size: 20px;
+      cursor: pointer;
+      border-radius: 8px;
+      border: none;
+      background-color: #ffffff;
+      color: #333;
+      transition: 0.3s;
+    }
+
+    button:hover:not([disabled]) {
+      background-color: #f0f0f0;
+    }
+
+    button[disabled] {
+      background-color: #ccc;
+      cursor: not-allowed;
+    }
+
+    #resultado img {
+      max-width: 200px;
+      margin-top: 10px;
+      border-radius: 10px;
+    }
+
+    h2, h3 {
+      background-color: rgba(0, 0, 0, 0.5);
+      display: inline-block;
+      padding: 10px 20px;
+      border-radius: 10px;
+    }
+  </style>
+</head>
+<body>
+
+  <h2>Escolha um número de 1 a 26</h2>
+  <div class="grid" id="botoes"></div>
+
+  <div id="resultado"></div>
+
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyDGYG-8_l33T3443dv74yV-EW5RsvuytUM",
+      authDomain: "presentes-824c6.firebaseapp.com",
+      databaseURL: "https://presentes-824c6-default-rtdb.firebaseio.com",
+      projectId: "presentes-824c6",
+      storageBucket: "presentes-824c6.firebasestorage.app",
+      messagingSenderId: "919725642683",
+      appId: "1:919725642683:web:cd1e487df9e725878eea9e"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+
+    const botoesContainer = document.getElementById("botoes");
+    const resultado = document.getElementById("resultado");
+
+    const presentes = [
+      { texto: "Escorredor de Macarrão", imagem: "https://i.imgur.com/t1s7ZNM.png" },
+      { texto: "Forma de Pizza", imagem: "https://i.imgur.com/USOfXpC.jpeg" },
+      { texto: "Frigideira", imagem: "https://i.imgur.com/LDQP3QM.png" },
+      { texto: "Forma de Pudim", imagem: "https://i.imgur.com/2587yVk.png" },
+      { texto: "Jarra de Suco", imagem: "https://i.imgur.com/oGQVcLC.jpeg" },
+      { texto: "Jogo de Assadeiras", imagem: "https://i.imgur.com/7JetlZK.jpeg" },
+      { texto: "Marinex com Tampa", imagem: "https://i.imgur.com/9ajS3Yp.png" },
+      { texto: "Boleira", imagem: "https://i.imgur.com/GcQoXA3.png" },
+      { texto: "Lixeira de Cozinha", imagem: "https://i.imgur.com/Acb2WaU.png" },
+      { texto: "Kit Utensílios de Cozinha", imagem: "https://i.imgur.com/PnhSpCm.png" },
+      { texto: "Pipoqueira Simples", imagem: "https://i.imgur.com/aUuZDwt.png" },
+      { texto: "Panela de Pressão Pequena", imagem: "https://i.imgur.com/GixdOUt.jpeg" },
+      { texto: "Escorredor de Louças", imagem: "https://i.imgur.com/mUO4Zk2.png" },
+      { texto: "Baldes", imagem: "https://i.imgur.com/CAg8deY.png" },
+      { texto: "Bacias para Lavar Roupa", imagem: "https://i.imgur.com/zTfEmx8.jpeg" },
+      { texto: "Cesto de Roupa Suja", imagem: "https://i.imgur.com/O5G158d.jpeg" },
+      { texto: "Jogo de Taças", imagem: "https://i.imgur.com/BPrNsG2.png" },
+      { texto: "Jogo de Xícaras", imagem: "https://i.imgur.com/4hujTMJ.png" },
+      { texto: "Sanduicheira", imagem: "https://i.imgur.com/dICDLLj.png" },
+      { texto: "Lixeira para Banheiro", imagem: "https://i.imgur.com/P5HSaur.png" },
+      { texto: "Triturador de Temperos", imagem: "https://i.imgur.com/KwH1xVI.jpeg" },
+      { texto: "Pratinhos de Sobremesa", imagem: "https://i.imgur.com/3qwXiFb.jpeg" },
+      { texto: "Descanso de Panela", imagem: "https://i.imgur.com/2VlmhV3.png" },
+      { texto: "Jogo Americano", imagem: "https://i.imgur.com/NHS85xd.png" },
+      { texto: "Saca Rolha e Cortador para Bolo/Pizza", imagem: "https://i.imgur.com/51OKC7Q.jpeg" },
+      { texto: "Fruteira", imagem: "https://i.imgur.com/ZlwGcdD.jpeg" },
+    ];
+
+    function criarBotoes(ocupados) {
+      botoesContainer.innerHTML = "";
+      for (let i = 1; i <= 26; i++) {
+        const btn = document.createElement("button");
+        btn.textContent = i;
+        if (ocupados[i]) {
+          btn.disabled = true;
+        }
+        btn.onclick = () => escolherPresente(i);
+        botoesContainer.appendChild(btn);
+      }
+    }
+
+    function escolherPresente(numero) {
+      db.ref("escolhas/" + numero).once("value", (snapshot) => {
+        if (snapshot.exists()) {
+          alert("Esse número já foi escolhido!");
+        } else {
+          const presente = presentes[numero - 1];
+          db.ref("escolhas/" + numero).set(presente);
+          mostrarPresente(presente);
+          criarBotoes({ ...ocupadosGlobais, [numero]: true });
+        }
+      });
+    }
+
+    function mostrarPresente(presente) {
+      resultado.innerHTML = `
+        <h3>Você ficou com o presente:</h3>
+        <p>${presente.texto}</p>
+        ${presente.imagem ? `<img src="${presente.imagem}" alt="Presente">` : ""}
+      `;
+    }
+
+    let ocupadosGlobais = {};
+
+    db.ref("escolhas").on("value", (snapshot) => {
+      ocupadosGlobais = snapshot.val() || {};
+      criarBotoes(ocupadosGlobais);
+    });
+  </script>
+
+</body>
+</html>

@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Admin - Presentes</title>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+  <style>
+    body {
+      font-family: sans-serif;
+      text-align: center;
+      margin-top: 50px;
+    }
+    button {
+      padding: 15px 30px;
+      font-size: 18px;
+      background-color: #e53935;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+    button:hover {
+      background-color: #c62828;
+    }
+    .info {
+      margin-top: 20px;
+      font-size: 16px;
+      color: #555;
+    }
+    #admin-area {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+
+  <div id="login-area">
+    <h2>Área restrita</h2>
+    <p>Digite a senha para acessar:</p>
+    <input type="password" id="senha" placeholder="Senha" />
+    <br><br>
+    <button onclick="verificarSenha()">Entrar</button>
+  </div>
+
+  <div id="admin-area">
+    <h1>Administração</h1>
+    <p class="info">Clique abaixo para liberar todos os números novamente:</p>
+    <button onclick="resetarEscolhas()">🔄 Resetar escolhas</button>
+  </div>
+
+  <script>
+    const senhaCorreta = "adm180595"; // 🔒 Troque para sua senha desejada
+
+    function verificarSenha() {
+      const senha = document.getElementById("senha").value;
+      if (senha === senhaCorreta) {
+        document.getElementById("login-area").style.display = "none";
+        document.getElementById("admin-area").style.display = "block";
+      } else {
+        alert("Senha incorreta!");
+      }
+    }
+
+    // Firebase config
+    const firebaseConfig = {
+      apiKey: "AIzaSyDGYG-8_l33T3443dv74yV-EW5RsvuytUM",
+      authDomain: "presentes-824c6.firebaseapp.com",
+      databaseURL: "https://presentes-824c6-default-rtdb.firebaseio.com",
+      projectId: "presentes-824c6",
+      storageBucket: "presentes-824c6.firebasestorage.app",
+      messagingSenderId: "919725642683",
+      appId: "1:919725642683:web:cd1e487df9e725878eea9e"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+
+    function resetarEscolhas() {
+      if (confirm("Tem certeza que deseja resetar todas as escolhas? Isso não pode ser desfeito!")) {
+        db.ref("escolhas").remove()
+          .then(() => alert("Todas as escolhas foram resetadas com sucesso!"))
+          .catch((error) => alert("Erro ao resetar: " + error.message));
+      }
+    }
+  </script>
+
+</body>
+</html>
