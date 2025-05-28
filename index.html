@@ -5,8 +5,6 @@
   <title>Escolha seu Presente</title>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
-  <!-- Biblioteca para efeito de fogos -->
-  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
   <style>
     body {
       font-family: sans-serif;
@@ -19,6 +17,8 @@
       background-repeat: no-repeat;
       min-height: 100vh;
       color: white;
+      position: relative;
+      overflow-x: hidden;
     }
 
     .grid {
@@ -94,6 +94,30 @@
       border: none;
       cursor: pointer;
     }
+
+    /* Temporizador no rodapé centralizado */
+    #countdown {
+      position: fixed;
+      bottom: 10px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 20px;
+      background-color: rgba(0, 0, 0, 0.5);
+      padding: 10px 20px;
+      border-radius: 10px;
+      color: white;
+      z-index: 1000;
+    }
+
+    /* Canvas de fogos cobrindo a tela */
+    #fireworks-canvas {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 9999;
+    }
   </style>
 </head>
 <body>
@@ -108,7 +132,12 @@
   <div class="grid" id="botoes"></div>
   <div id="resultado"></div>
 
+  <div id="countdown"></div>
+
+  <canvas id="fireworks-canvas"></canvas>
+
   <script>
+    // Config Firebase
     const firebaseConfig = {
       apiKey: "AIzaSyDGYG-8_l33T3443dv74yV-EW5RsvuytUM",
       authDomain: "presentes-824c6.firebaseapp.com",
@@ -118,7 +147,6 @@
       messagingSenderId: "919725642683",
       appId: "1:919725642683:web:cd1e487df9e725878eea9e"
     };
-
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
 
@@ -126,11 +154,13 @@
     const resultado = document.getElementById("resultado");
     const nomeInput = document.getElementById("nome");
     const confirmarBtn = document.getElementById("confirmarBtn");
+    const countdownElement = document.getElementById("countdown");
 
     let nomeUsuario = "";
     let ocupadosGlobais = {};
     let usuarioJaEscolheu = false;
 
+    // Presentes
     const presentes = [
       { texto: "Escorredor de Macarrão", imagem: "https://i.imgur.com/t1s7ZNM.png" },
       { texto: "Forma de Pizza", imagem: "https://i.imgur.com/USOfXpC.jpeg" },
@@ -160,7 +190,43 @@
       { texto: "Fruteira", imagem: "https://i.imgur.com/ZlwGcdD.jpeg" }
     ];
 
+    // Temporizador
+    const targetDate = new Date("2025-07-27T15:00:00").getTime();
+    function updateCountdown() {
+      const now = new Date().getTime();
+      const distance = targetDate - now;
+
+      if (distance < 0) {
+        countdownElement.innerHTML = "O tempo acabou!";
+        clearInterval(interval);
+        return;
+      }
+
+      const days = Math.floor(distance / (1000 * 60 * 60 * 24));
+      const hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+      const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
+      const seconds = Math.floor((distance % (1000 * 60)) / 1000);
+
+      countdownElement.innerHTML = `Faltam ${days}d ${hours}h ${minutes}m ${seconds}s`;
+    }
+    const interval = setInterval(updateCountdown, 1000);
+    updateCountdown();
+
+    // Bloqueio localStorage para impedir múltiplas escolhas
+    if(localStorage.getItem('presenteEscolhido') === 'true') {
+      usuarioJaEscolheu = true;
+      criarBotoes({}, true);
+      resultado.innerHTML = '<h3>Você já escolheu um presente anteriormente neste dispositivo.</h3>';
+      confirmarBtn.disabled = true;
+      nomeInput.disabled = true;
+    }
+
     confirmarBtn.onclick = () => {
+      if(localStorage.getItem('presenteEscolhido') === 'true') {
+        alert("Você já escolheu um presente neste dispositivo.");
+        return;
+      }
+
       const nome = nomeInput.value.trim();
       if (!nome) {
         alert("Por favor, insira seu nome completo.");
@@ -174,6 +240,8 @@
           alert("Este nome já foi utilizado para escolher um presente.");
           usuarioJaEscolheu = true;
           criarBotoes(ocupadosGlobais, true);
+          confirmarBtn.disabled = true;
+          nomeInput.disabled = true;
         } else {
           criarBotoes(ocupadosGlobais, false);
         }
@@ -207,38 +275,15 @@
       }
     }
 
-    // Função para efeito de fogos de artifício visual
-    function fogos() {
-      var duration = 2 * 1000;
-      var animationEnd = Date.now() + duration;
-      var defaults = { startVelocity: 30, spread: 360, ticks: 60, zIndex: 1000 };
-
-      function randomInRange(min, max) {
-        return Math.random() * (max - min) + min;
-      }
-
-      var interval = setInterval(function() {
-        var timeLeft = animationEnd - Date.now();
-
-        if (timeLeft <= 0) {
-          return clearInterval(interval);
-        }
-
-        var particleCount = 50 * (timeLeft / duration);
-        confetti(Object.assign({}, defaults, {
-          particleCount,
-          origin: { x: randomInRange(0.1, 0.3), y: Math.random() - 0.2 }
-        }));
-        confetti(Object.assign({}, defaults, {
-          particleCount,
-          origin: { x: randomInRange(0.7, 0.9), y: Math.random() - 0.2 }
-        }));
-      }, 250);
-    }
-
     function escolherPresente(numero) {
       if (!nomeUsuario) {
         alert("Por favor, insira seu nome primeiro.");
+        return;
+      }
+
+      // Bloqueio localStorage novamente pra garantir
+      if(localStorage.getItem('presenteEscolhido') === 'true') {
+        alert("Você já escolheu um presente neste dispositivo.");
         return;
       }
 
@@ -249,31 +294,120 @@
           const presente = presentes[numero - 1];
           db.ref("escolhas/" + numero).set({ ...presente, nome: nomeUsuario });
           db.ref("usuarios").push(nomeUsuario);
+          localStorage.setItem('presenteEscolhido', 'true');
           mostrarPresente(presente);
-          fogos(); // Aqui dispara o efeito visual
           criarBotoes({ ...ocupadosGlobais, [numero]: true }, true);
+          confirmarBtn.disabled = true;
+          nomeInput.disabled = true;
+          usuarioJaEscolheu = true;
+          disparaFogos();
         }
       });
     }
 
     function mostrarPresente(presente) {
       resultado.innerHTML = `
-        <h3>Você ficou com o presente:</h3>
+        <h3>Parabéns, seu presente é:</h3>
         <p>${presente.texto}</p>
-        ${presente.imagem ? `<img src="${presente.imagem}" alt="Presente">` : ""}
+        <img src="${presente.imagem}" alt="${presente.texto}" />
       `;
     }
 
-    db.ref("escolhas").on("value", snapshot => {
-      ocupadosGlobais = {};
-      const dados = snapshot.val();
-      for (let num in dados) {
-        ocupadosGlobais[num] = true;
-      }
-      if (nomeUsuario && !usuarioJaEscolheu) {
-        criarBotoes(ocupadosGlobais, false);
-      }
+    // Atualiza lista de ocupados do Firebase
+    function atualizarOcupados() {
+      db.ref("escolhas").once("value", snapshot => {
+        ocupadosGlobais = {};
+        snapshot.forEach(child => {
+          ocupadosGlobais[child.key] = true;
+        });
+
+        // Se o usuário já escolheu, bloqueia todos
+        if(usuarioJaEscolheu) {
+          criarBotoes(ocupadosGlobais, true);
+        }
+      });
+    }
+    atualizarOcupados();
+
+    // Atualiza ao vivo
+    db.ref("escolhas").on("value", () => {
+      atualizarOcupados();
     });
+
+    // Efeito fogos simples com canvas
+    const canvas = document.getElementById('fireworks-canvas');
+    const ctx = canvas.getContext('2d');
+    let particles = [];
+    let animationFrameId;
+
+    function resizeCanvas() {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    }
+    resizeCanvas();
+    window.addEventListener('resize', resizeCanvas);
+
+    class Particle {
+      constructor(x, y, color) {
+        this.x = x;
+        this.y = y;
+        this.color = color;
+        this.radius = Math.random() * 3 + 2;
+        this.speedX = (Math.random() - 0.5) * 6;
+        this.speedY = (Math.random() - 0.5) * 6;
+        this.alpha = 1;
+        this.decay = Math.random() * 0.01 + 0.005;
+      }
+      update() {
+        this.x += this.speedX;
+        this.y += this.speedY;
+        this.alpha -= this.decay;
+      }
+      draw() {
+        ctx.save();
+        ctx.globalAlpha = this.alpha;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.radius, 0, 2 * Math.PI);
+        ctx.fillStyle = this.color;
+        ctx.shadowBlur = 10;
+        ctx.shadowColor = this.color;
+        ctx.fill();
+        ctx.restore();
+      }
+    }
+
+    function disparaFogos() {
+      // Gera partículas em posição central
+      const x = canvas.width / 2;
+      const y = canvas.height / 2;
+      particles = [];
+      const colors = ['#ff0040', '#ff8000', '#ffff00', '#80ff00', '#00ff80', '#0080ff', '#8000ff'];
+
+      for (let i = 0; i < 100; i++) {
+        const color = colors[Math.floor(Math.random() * colors.length)];
+        particles.push(new Particle(x, y, color));
+      }
+
+      // Animação
+      function animate() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        particles.forEach((p, i) => {
+          p.update();
+          p.draw();
+          if (p.alpha <= 0) {
+            particles.splice(i, 1);
+          }
+        });
+
+        if (particles.length > 0) {
+          animationFrameId = requestAnimationFrame(animate);
+        } else {
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+          cancelAnimationFrame(animationFrameId);
+        }
+      }
+      animate();
+    }
   </script>
 </body>
 </html>
